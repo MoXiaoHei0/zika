@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>文游对话 · 自介卡</title>
+<style>
+  :root{
+    --ink:#f3efe8;
+    --dim:#a9a49c;
+    --faint:rgba(243,239,232,.40);
+    --line:rgba(243,239,232,.14);
+    --accent:#c2312f;
+    --accent-bright:#e23b38;
+    --glass:rgba(16,15,19,.84);
+    --serif:"Songti SC","Times New Roman","Noto Serif CJK SC","Source Han Serif SC",serif;
+    --sans:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;}
+  body{
+    background:#07070a;color:var(--ink);font-family:var(--sans);
+    overflow:hidden;-webkit-font-smoothing:antialiased;
+  }
+
+  /* 动画：从下往上滑入 + 淡入 */
+  @keyframes fadeUp{from{opacity:0;transform:translateY(46px)}to{opacity:1;transform:none}}
+  @keyframes fadeDown{from{opacity:1;transform:none}to{opacity:0;transform:translateY(-14px)}}
+  @keyframes blink{0%,100%{opacity:.35}50%{opacity:1}}
+  .up{animation:fadeUp .6s cubic-bezier(.2,.75,.3,1) both;}
+  .down{animation:fadeDown .28s ease both;}
+
+  /* ===== 背景层 ===== */
+  .bg{
+    position:fixed;inset:0;z-index:0;
+    background:
+      radial-gradient(1100px 480px at 50% -12%, rgba(194,49,47,.18), transparent 62%),
+      radial-gradient(760px 420px at 8% 108%, rgba(194,49,47,.10), transparent 55%),
+      linear-gradient(180deg, #0b0a10, #060609);
+    background-size:cover;background-position:center;
+  }
+  .bg::after{content:"";position:absolute;inset:0;
+    background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.016) 0 1px, transparent 1px 3px);}
+
+  /* ===== 角色层 ===== */
+  .char-layer{
+    position:fixed;left:50%;transform:translateX(-50%);
+    bottom:clamp(150px,20vh,190px);width:min(340px,78vw);height:min(520px,58vh);
+    z-index:1;display:flex;align-items:flex-end;justify-content:center;pointer-events:none;
+  }
+  .char-layer img.char{
+    position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    max-width:100%;max-height:100%;object-fit:contain;object-position:bottom center;
+    opacity:0;visibility:hidden;filter:drop-shadow(0 22px 44px rgba(0,0,0,.55));
+    transition:opacity .7s ease, visibility .7s ease;pointer-events:none;
+  }
+  .char-layer img.char.on{opacity:1;visibility:visible;}
+  .sil{
+    position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    width:76%;height:96%;
+    border:1px dashed rgba(226,59,56,.42);border-radius:12px;
+    background:
+      radial-gradient(closest-side at 50% 32%, rgba(226,59,56,.30), transparent 70%),
+      linear-gradient(172deg, rgba(243,239,232,.09), rgba(243,239,232,.02));
+    display:flex;align-items:flex-end;justify-content:center;padding-bottom:16px;
+    transition:opacity .7s ease, visibility .7s ease;
+  }
+  .sil.hide{opacity:0;visibility:hidden;}
+  .sil::before{content:"";position:absolute;left:50%;top:12%;transform:translateX(-50%);
+    width:27%;aspect-ratio:1/1.15;border-radius:46% 46% 40% 40%;
+    border:1px solid rgba(243,239,232,.28);
+    background:linear-gradient(160deg, rgba(243,239,232,.11), rgba(243,239,232,.03));}
+  .sil::after{content:"";position:absolute;left:50%;bottom:0;transform:translateX(-50%);
+    width:64%;height:56%;border-radius:46% 46% 0 0;
+    border:1px solid rgba(243,239,232,.22);
+    background:linear-gradient(160deg, rgba(243,239,232,.08), rgba(243,239,232,.02));}
+  .sil span{position:relative;z-index:2;font-size:10px;letter-spacing:.44em;color:var(--faint);white-space:nowrap;}
+  .emo-tag{
+    position:absolute;left:50%;transform:translateX(-50%);top:2px;
+    font-size:10px;letter-spacing:.42em;color:var(--accent-bright);
+    border:1px solid rgba(226,59,56,.5);padding:4px 14px;border-radius:999px;
+    background:rgba(7,7,10,.72);z-index:3;
+  }
+
+  /* ===== 顶部状态 ===== */
+  .top{
+    position:fixed;top:0;left:0;right:0;z-index:4;
+    display:flex;align-items:center;justify-content:space-between;gap:10px;padding:12px 18px;
+  }
+  .top .name{font-family:var(--serif);font-size:16px;letter-spacing:.3em;}
+  .top .name small{display:block;font-family:var(--sans);font-size:9px;letter-spacing:.4em;color:var(--faint);font-weight:400;}
+
+  /* ===== 底部停靠区 ===== */
+  .dock{
+    position:fixed;left:50%;transform:translateX(-50%);bottom:0;z-index:3;
+    width:min(760px,96vw);padding:0 14px 18px;
+    display:flex;flex-direction:column;align-items:center;
+  }
+
+  /* 竖排问题列表 */
+  .menu{
+    width:min(520px,92%);display:flex;flex-direction:column;gap:9px;
+    margin-bottom:14px;
+  }
+  .menu.hide{display:none;}
+  .menu .q{
+    width:100%;text-align:center;
+    border:1px solid rgba(226,59,56,.45);background:rgba(226,59,56,.07);color:#ecc4c0;
+    font-family:var(--serif);font-size:14px;letter-spacing:.3em;padding:11px 18px;
+    border-radius:10px;cursor:pointer;transition:.28s;
+    backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  }
+  .menu .q:hover{background:rgba(226,59,56,.82);color:#fff;border-color:rgba(226,59,56,.82);}
+  .menu .q:disabled{opacity:.45;cursor:default;}
+
+  /* 对话框 */
+  .dbox{
+    width:100%;padding:16px 20px 14px;border-radius:14px;
+    background:var(--glass);border:1px solid rgba(226,59,56,.30);
+    box-shadow:0 18px 50px rgba(0,0,0,.55);
+    backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+    min-height:96px;margin-bottom:14px;
+  }
+  .dbox .who{font-size:10px;letter-spacing:.4em;color:var(--accent-bright);margin-bottom:5px;}
+  .dbox .txt{font-family:var(--serif);font-size:14.5px;line-height:1.95;letter-spacing:.06em;color:var(--ink);min-height:54px;}
+  .dbox .txt .caret{display:inline-block;width:7px;height:15px;background:var(--accent-bright);vertical-align:-2px;margin-left:2px;animation:blink .9s infinite;}
+
+  /* 返回按钮 */
+  .back{
+    display:none;margin-bottom:4px;
+    border:1px solid rgba(243,239,232,.24);background:rgba(243,239,232,.05);color:var(--dim);
+    font-size:11px;letter-spacing:.45em;padding:9px 34px;border-radius:999px;cursor:pointer;transition:.28s;
+  }
+  .back.show{display:block;}
+  .back:hover{color:var(--ink);border-color:rgba(226,59,56,.6);background:rgba(226,59,56,.12);}
+
+  /* ===== 开场 ===== */
+  .veil{
+    position:fixed;inset:0;z-index:60;background:#07070a;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;
+    opacity:1;transition:opacity 1.1s ease, visibility 1.1s ease;visibility:visible;cursor:pointer;
+  }
+  .veil.off{opacity:0;visibility:hidden;pointer-events:none;}
+  .veil .v-line{font-size:11px;letter-spacing:.55em;color:var(--faint);text-align:center;}
+  .veil .v-title{font-family:var(--serif);font-size:clamp(24px,4.6vw,38px);letter-spacing:.34em;color:var(--ink);text-align:center;}
+  .veil .v-title em{font-style:normal;color:var(--accent-bright);}
+  .veil .v-tap{font-size:10px;letter-spacing:.4em;color:var(--dim);animation:blink 2.2s infinite;}
+
+  footer.tpl-foot{position:fixed;left:0;right:0;bottom:0;z-index:2;text-align:center;
+    font-size:9px;letter-spacing:.4em;color:rgba(243,239,232,.26);padding-bottom:6px;}
+
+  @media (max-width:560px){
+    .char-layer{width:min(300px,82vw);height:min(440px,50vh);bottom:clamp(200px,26vh,240px);}
+    .menu .q{font-size:13px;padding:10px 14px;letter-spacing:.24em;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bg" id="bgLayer"></div>
+
+<div class="veil" id="veil">
+  <div class="v-line">SCENE · 文游对话</div>
+  <div class="v-title">触 <em>碰</em> 她</div>
+  <div class="v-tap">— 轻触开始 —</div>
+</div>
+
+<header class="top">
+  <div class="name">小黑<small>DANGER · 收容物档案</small></div>
+</header>
+
+<!-- 角色层 -->
+<div class="char-layer">
+  <img class="char" id="char-calm" alt="平静" />
+  <img class="char" id="char-play" alt="玩味" />
+  <img class="char" id="char-stern" alt="严肃" />
+  <img class="char" id="char-glow" alt="微光" />
+  <img class="char" id="char-flat" alt="不动" />
+  <div class="sil" id="silBox"><span>立绘待定 · 情绪占位</span></div>
+  <div class="emo-tag" id="emoTag">平静</div>
+</div>
+
+<div class="dock">
+  <!-- 竖排问题列表 -->
+  <div class="menu" id="menuBox"></div>
+
+  <!-- 对话框 -->
+  <div class="dbox">
+    <div class="who" id="who">小黑</div>
+    <div class="txt" id="talk"></div>
+  </div>
+
+  <!-- 返回 -->
+  <button class="back" id="backBtn" type="button">返 回</button>
+</div>
+
+<footer class="tpl-foot">— 文游对话 · 待补背景与立绘 —</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ================= 配置区 ================= */
+  var CONFIG = {
+    charName: "小黑",
+    alias: "黑酱",
+    tagline: "人们都尝试用心理学去剖析了解自己，最后发现了自己的苦难和虚无",
+    bgUrl: "",   // ← 背景图 URL（可选，不填用默认暗色氛围）
+    intro: "一个很好说话的光遇底层病陪。有什么需要可以积极与我沟通。",
+    styleMain: "上位 · 高压 · 高恋 · 贬低 · 精控",
+    styleSub: "意识流 · 钓系 · 高恋 · 调情 · PUA",
+    notice: "请提前告知您的称呼、喜好和雷点。下单默认已读须知，踩暗雷概不负责。约会中婉拒硬怼、搞笑、出戏、挂机、故意不配合等行为。不适请在 30/5min、60/10min 内退单。本人保留退单及永拒权利。",
+    orderTime: "周中 / 周末（待补充）",
+    links: { "板评": "https://www.kdocs.cn/l/cd52uTHnVsoy", "话术": "https://www.kdocs.cn/l/cnW5naLAmVGD" }
+  };
+
+  /* 情绪立绘（画好后填 URL，缺哪张用剪影占位） */
+  var EMOTIONS = {
+    calm:  { label:"平静", url:"" },
+    play:  { label:"玩味", url:"" },
+    stern: { label:"严肃", url:"" },
+    glow:  { label:"微光", url:"" },
+    flat:  { label:"不动", url:"" }
+  };
+
+  /* 问题 → 回应 + 情绪（问题顺序即列表顺序） */
+  var QUESTIONS = [
+    { q:"你是谁？", emo:"calm", reply: function(c){
+        return "圈名" + c.charName + "，也可以叫我" + c.alias + "。\n" + c.tagline;
+      }},
+    { q:"什么风格？", emo:"play", reply: function(c){
+        return "主调是" + c.styleMain + "；副调嘛……" + c.styleSub + "。想试试哪种？";
+      }},
+    { q:"有什么规矩？", emo:"stern", reply: function(c){
+        return "规矩不多，但踩雷概不负责：\n" + c.notice;
+      }},
+    { q:"接单时间？", emo:"calm", reply: function(c){
+        return "接单时间：" + c.orderTime + "。具体排期可以聊。";
+      }},
+    { q:"板评 / 话术？", emo:"play", reply: function(c){
+        return "板评：" + c.links["板评"] + "\n话术集：" + c.links["话术"];
+      }},
+    { q:"多少钱？", emo:"play", reply: function(c){
+        return "钱的事私聊谈，先说说你想要什么。";
+      }}
+  ];
+
+  /* ================= 引擎 ================= */
+  var veil = document.getElementById("veil");
+  var talk = document.getElementById("talk");
+  var who = document.getElementById("who");
+  var menuBox = document.getElementById("menuBox");
+  var backBtn = document.getElementById("backBtn");
+  var bgLayer = document.getElementById("bgLayer");
+  var silBox = document.getElementById("silBox");
+  var emoTag = document.getElementById("emoTag");
+  var chars = {};
+  ["calm","play","stern","glow","flat"].forEach(function(k){
+    chars[k] = document.getElementById("char-" + k);
+  });
+
+  var typing = false;
+  var curEmo = "calm";
+  var locked = false;   // 回答播放中锁定
+  var dbox = document.querySelector(".dbox");
+
+  /* 背景 */
+  if (CONFIG.bgUrl){
+    var img = new Image();
+    img.onload = function(){
+      bgLayer.style.backgroundImage = "url(" + CONFIG.bgUrl + ")";
+      bgLayer.style.backgroundSize = "cover";
+      bgLayer.style.backgroundPosition = "center";
+    };
+    img.src = CONFIG.bgUrl;
+  }
+
+  /* 情绪 */
+  function setEmotion(key){
+    curEmo = EMOTIONS[key] ? key : "calm";
+    emoTag.textContent = EMOTIONS[curEmo].label;
+    var hasImg = false;
+    Object.keys(chars).forEach(function(k){
+      var el = chars[k];
+      var url = EMOTIONS[k].url;
+      if (url){
+        if (el.getAttribute("src") !== url) el.src = url;
+        el.classList.toggle("on", k === curEmo);
+        if (k === curEmo) hasImg = true;
+      } else {
+        el.classList.remove("on");
+      }
+    });
+    silBox.classList.toggle("hide", hasImg);
+  }
+  setEmotion("calm");
+
+  /* 打字机 */
+  function typeWrite(text, cb){
+    typing = true;
+    talk.textContent = "";
+    var i = 0;
+    (function tick(){
+      if (i < text.length){
+        talk.textContent = text.slice(0, i + 1);
+        i++;
+        setTimeout(tick, 34);
+      } else {
+        typing = false;
+        if (cb) cb();
+      }
+    })();
+  }
+
+  /* 重放渐现动画 */
+  function replayUp(el){
+    el.classList.remove("up");
+    void el.offsetWidth;   // 强制重排以重启动画
+    el.classList.add("up");
+  }
+
+  /* —— 状态 A：问题列表（整体从下往上滑入，无提示句） —— */
+  function showMenu(){
+    backBtn.classList.remove("show");
+    talk.textContent = "……";
+    replayUp(menuBox);
+    menuBox.classList.remove("hide");
+  }
+
+  /* —— 状态 B：点问题 → 对话框整体从下往上滑入展开回答 —— */
+  function answer(item){
+    locked = true;
+    menuBox.classList.add("hide");          // 收起问题
+    setEmotion(item.emo);
+    replayUp(dbox);                          // 对话框整体从下往上滑入
+    typeWrite(item.reply(CONFIG), function(){
+      // 回答打完，返回按钮从下往上滑入
+      backBtn.classList.add("show");
+      replayUp(backBtn);
+      locked = false;
+    });
+  }
+
+  /* 渲染问题列表 */
+  function renderMenu(){
+    menuBox.innerHTML = "";
+    QUESTIONS.forEach(function(item, i){
+      var b = document.createElement("button");
+      b.className = "q";
+      b.textContent = item.q;
+      b.addEventListener("click", function(){
+        if (locked || typing) return;
+        answer(item);
+      });
+      menuBox.appendChild(b);
+    });
+  }
+  renderMenu();
+
+  /* 返回 */
+  backBtn.addEventListener("click", function(){
+    if (locked || typing) return;
+    showMenu();
+  });
+
+  /* 开场：无提示句，直接整体滑入 */
+  function boot(){
+    veil.classList.add("off");
+    showMenu();
+  }
+  veil.addEventListener("click", boot);
+
+})();
+</script>
+</body>
+</html>
